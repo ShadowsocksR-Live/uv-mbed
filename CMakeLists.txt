@@ -16,7 +16,7 @@ set_target_properties(mbedtls PROPERTIES
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
 add_subdirectory(libuv)
-set_target_properties(uv_a PROPERTIES
+set_target_properties(uv PROPERTIES
         INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/libuv/include)
 
 add_library(uv-mbed STATIC
@@ -37,16 +37,15 @@ target_include_directories(uv-mbed
         )
 
 target_link_libraries(uv-mbed
-        PUBLIC uv_a
+        PUBLIC uv
         PUBLIC mbedtls
         PUBLIC mbedx509
         PUBLIC mbedcrypto)
 
 if(WIN32)
 else()
-install(DIRECTORY include/uv-mbed DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(TARGETS uv-mbed
-        ARCHIVE DESTINATION lib)
+# install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/uv-mbed DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+# install(TARGETS uv-mbed ARCHIVE DESTINATION lib)
 endif()
 
 #if(ENABLE_SAMPLES)

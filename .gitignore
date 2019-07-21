@@ -70,6 +70,7 @@ cmake-build-release/
 
 .vscode/
 sample/sample
+sample/client
 *.cbp
 Debug/
 Release/
