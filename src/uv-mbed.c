@@ -27,6 +27,8 @@ struct uv_mbed_s {
     mbedtls_ctr_drbg_context ctr_drbg;
     mbedtls_entropy_context entropy;
 
+    bool connected;
+
     uv_mbed_connect_cb connect_cb;
     void *connect_cb_p;
 
@@ -102,9 +104,15 @@ static void _close_ssl_process_cb(uv_mbed_t *mbed, int status, void *p) {
 
 int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
     int rc;
+    assert(mbed && close_cb);
     mbed->close_cb = close_cb;
     mbed->close_cb_p = p;
     rc = mbedtls_ssl_close_notify(&mbed->ssl);
+
+    if (mbed->connected == false) {
+        close_cb(mbed, p);
+        return 0;
+    }
 
     uv_read_stop((uv_stream_t*)&mbed->socket);
 
@@ -314,6 +322,7 @@ static void _uv_tcp_connect_established_cb(uv_connect_t *req, int status) {
         //uv_stream_t* socket = req->handle;
         uv_stream_t *socket = (uv_stream_t*)&mbed->socket;
         socket->data = mbed;
+        mbed->connected = true;
         uv_read_start(socket, _uv_tcp_alloc_cb, _uv_tcp_read_done_cb);
         mbed_ssl_process_in(mbed);
     }
