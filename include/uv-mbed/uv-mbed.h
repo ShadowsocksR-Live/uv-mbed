@@ -15,8 +15,9 @@ struct uv_mbed_s;
 typedef struct uv_mbed_s uv_mbed_t;
 
 uv_mbed_t * uv_mbed_init(uv_loop_t *loop, const char *host_name, void *user_data, int dump_level);
+int uv_mbed_add_ref(uv_mbed_t *mbed);
 void * uv_mbed_user_data(uv_mbed_t *mbed);
-int uv_mbed_get_stream_fd(const uv_mbed_t *mbed);
+uv_os_sock_t uv_mbed_get_stream_fd(const uv_mbed_t *mbed);
 
 typedef void (*uv_mbed_connect_cb)(uv_mbed_t* mbed, int status, void *p);
 int uv_mbed_connect(uv_mbed_t* mbed, const char *remote_addr, int port, uv_mbed_connect_cb cb, void *p);

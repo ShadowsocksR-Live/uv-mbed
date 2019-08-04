@@ -41,6 +41,8 @@ struct uv_mbed_s {
 
     struct bio *ssl_in;
     struct bio *ssl_out;
+
+    int ref_count;
 };
 
 #ifndef container_of
@@ -74,14 +76,22 @@ uv_mbed_t * uv_mbed_init(uv_loop_t *loop, const char *host_name, void *user_data
     mbed->user_data = user_data;
     uv_tcp_init(loop, &mbed->socket);
     _init_ssl(mbed, host_name, dump_level);
+    mbed->ref_count = 1;
     return mbed;
+}
+
+int uv_mbed_add_ref(uv_mbed_t *mbed) {
+    if (mbed) {
+        return (++mbed->ref_count);
+    }
+    return 0;
 }
 
 void * uv_mbed_user_data(uv_mbed_t *mbed) {
     return mbed->user_data;
 }
 
-static int _uv_stream_fd(const uv_tcp_t *handle) {
+static uv_os_sock_t _uv_stream_fd(const uv_tcp_t *handle) {
 #if defined(_WIN32)
     return handle->socket;
 #elif defined(__APPLE__)
@@ -92,7 +102,7 @@ static int _uv_stream_fd(const uv_tcp_t *handle) {
 #endif
 }
 
-int uv_mbed_get_stream_fd(const uv_mbed_t *mbed) {
+uv_os_sock_t uv_mbed_get_stream_fd(const uv_mbed_t *mbed) {
     return mbed ? _uv_stream_fd(&mbed->socket) : -1; /* (~0) */
 }
 
@@ -105,14 +115,17 @@ static void _close_ssl_process_cb(uv_mbed_t *mbed, int status, void *p) {
 int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
     int rc;
     assert(mbed && close_cb);
-    mbed->close_cb = close_cb;
-    mbed->close_cb_p = p;
     rc = mbedtls_ssl_close_notify(&mbed->ssl);
 
     if (mbed->connected == false) {
+        uv_mbed_add_ref(mbed);
         close_cb(mbed, p);
+        uv_mbed_free(mbed);
         return 0;
     }
+
+    mbed->close_cb = close_cb;
+    mbed->close_cb_p = p;
 
     uv_read_stop((uv_stream_t*)&mbed->socket);
 
@@ -209,7 +222,7 @@ static void _init_ssl(uv_mbed_t *mbed, const char *host_name, int dump_level) {
     mbedtls_ssl_set_bio(&mbed->ssl, mbed, _mbed_ssl_send, _mbed_ssl_recv, NULL);
 }
 
-int uv_mbed_free(uv_mbed_t *mbed) {
+void _uv_mbed_free_internal(uv_mbed_t *mbed) {
     mbedtls_ctr_drbg_context *rng;
     mbedtls_entropy_context *ctx;
     bio_free(mbed->ssl_in);
@@ -228,8 +241,17 @@ int uv_mbed_free(uv_mbed_t *mbed) {
     mbedtls_x509_crt_free(&mbed->cacert);
 
     free(mbed);
+}
 
-    return 0;
+int uv_mbed_free(uv_mbed_t *mbed) {
+    int ref_count = 0;
+    if (mbed) {
+        ref_count = (--mbed->ref_count);
+        if (ref_count <= 0) {
+            _uv_mbed_free_internal(mbed);
+        }
+    }
+    return ref_count;
 }
 
 static void tls_debug_f(void *ctx, int level, const char *file, int line, const char *str)
@@ -246,6 +268,7 @@ static void _uv_tcp_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_
 
 static bool _do_uv_mbeb_connect_cb(uv_mbed_t *mbed, int status) {
     bool result = false;
+    uv_mbed_add_ref(mbed);
     if (mbed && mbed->connect_cb) {
         mbed->connect_cb(mbed, status, mbed->connect_cb_p);
         mbed->connect_cb = NULL;
@@ -262,6 +285,7 @@ static bool _do_uv_mbeb_connect_cb(uv_mbed_t *mbed, int status) {
         }
     }
 #endif
+    uv_mbed_free(mbed);
     return result;
 }
 
@@ -335,11 +359,13 @@ static void _uv_tcp_close_done_cb (uv_handle_t *h) {
     if (mbed->close_cb) {
         mbed->close_cb(mbed, mbed->close_cb_p);
     }
+    uv_mbed_free(mbed);
 }
 
 static void _uv_tcp_shutdown_cb(uv_shutdown_t* req, int status) {
     uv_mbed_t *mbed = (uv_mbed_t *) req->data;
     assert(req->handle == (uv_stream_t *)&mbed->socket);
+    uv_mbed_add_ref(mbed);
     uv_close((uv_handle_t *) &mbed->socket, _uv_tcp_close_done_cb);
     free(req);
 }
