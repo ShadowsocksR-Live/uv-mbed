@@ -120,7 +120,7 @@ int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
     if (mbed->connected == false) {
         uv_mbed_add_ref(mbed);
         close_cb(mbed, p);
-        uv_mbed_free(mbed);
+        uv_mbed_release(mbed);
         return 0;
     }
 
@@ -243,7 +243,7 @@ void _uv_mbed_free_internal(uv_mbed_t *mbed) {
     free(mbed);
 }
 
-int uv_mbed_free(uv_mbed_t *mbed) {
+int uv_mbed_release(uv_mbed_t *mbed) {
     int ref_count = 0;
     if (mbed) {
         ref_count = (--mbed->ref_count);
@@ -285,7 +285,7 @@ static bool _do_uv_mbeb_connect_cb(uv_mbed_t *mbed, int status) {
         }
     }
 #endif
-    uv_mbed_free(mbed);
+    uv_mbed_release(mbed);
     return result;
 }
 
@@ -359,7 +359,7 @@ static void _uv_tcp_close_done_cb (uv_handle_t *h) {
     if (mbed->close_cb) {
         mbed->close_cb(mbed, mbed->close_cb_p);
     }
-    uv_mbed_free(mbed);
+    uv_mbed_release(mbed);
 }
 
 static void _uv_tcp_shutdown_cb(uv_shutdown_t* req, int status) {

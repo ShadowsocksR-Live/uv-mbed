@@ -31,7 +31,7 @@ int uv_mbed_write(uv_mbed_t *mbed, const uv_buf_t *buf, uv_mbed_write_cb cb, voi
 
 typedef void (*uv_mbed_close_cb)(uv_mbed_t *mbed, void *p);
 int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p);
-int uv_mbed_free(uv_mbed_t *mbed);
+int uv_mbed_release(uv_mbed_t *mbed);
 
 #ifdef __cplusplus
 }

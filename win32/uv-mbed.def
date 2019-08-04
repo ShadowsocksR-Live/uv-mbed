@@ -10,5 +10,5 @@ uv_mbed_connect
 uv_mbed_set_read_callback
 uv_mbed_write
 uv_mbed_close
-uv_mbed_free
+uv_mbed_release
 
