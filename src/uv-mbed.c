@@ -17,6 +17,8 @@
 #include "uv-mbed/uv-mbed.h"
 #include "bio.h"
 
+#define HANDSHAKE_RETRY_COUNT_MAX   10000
+
 struct uv_mbed_s {
     union uv_any_handle *socket;
     uv_loop_t *loop;
@@ -28,7 +30,9 @@ struct uv_mbed_s {
     mbedtls_ctr_drbg_context ctr_drbg;
     mbedtls_entropy_context entropy;
 
-    bool connected;
+    bool tcp_connected;
+
+    size_t handshake_retry_count;
 
     uv_mbed_connect_cb connect_cb;
     void *connect_cb_p;
@@ -118,7 +122,7 @@ int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
     mbed->close_cb = close_cb;
     mbed->close_cb_p = p;
 
-    if (mbed->connected == false) {
+    if (mbed->tcp_connected == false) {
         uv_mbed_add_ref(mbed);
         uv_close(&mbed->socket->handle, _uv_tcp_close_done_cb);
     } else {
@@ -348,7 +352,7 @@ static void _uv_tcp_connect_established_cb(uv_connect_t *req, int status) {
         _do_uv_mbeb_connect_cb(mbed, status);
     }
     else {
-        mbed->connected = true;
+        mbed->tcp_connected = true;
         uv_read_start(s, _uv_tcp_alloc_cb, _uv_tcp_read_done_cb);
         mbed_ssl_process_in(mbed);
     }
@@ -406,9 +410,15 @@ static int _mbed_ssl_send(void* ctx, const uint8_t *buf, size_t len) {
     return (int) len;
 }
 
+#define HANDSHAKE_ERROR_N_RETRY UV_ECONNREFUSED
+
 static void _mbed_handshake_write_cb(uv_mbed_t *mbed, int status, void *p) {
-    if (status != MBEDTLS_ERR_SSL_WANT_WRITE) {
+    if (status != HANDSHAKE_ERROR_N_RETRY) {
         mbed_continue_handshake(mbed);
+    } else {
+        if ((++ mbed->handshake_retry_count) > HANDSHAKE_RETRY_COUNT_MAX) {
+            _do_uv_mbeb_connect_cb(mbed, status);
+        }
     }
 }
 
@@ -456,7 +466,7 @@ static void mbed_continue_handshake(uv_mbed_t *mbed) {
     int rc = mbedtls_ssl_handshake(&mbed->ssl);
     switch (rc) {
     case 0:
-        _do_uv_mbeb_connect_cb(mbed, rc);
+        _do_uv_mbeb_connect_cb(mbed, 0);
         break;
     case MBEDTLS_ERR_SSL_WANT_WRITE:
     case MBEDTLS_ERR_SSL_WANT_READ:
@@ -473,7 +483,7 @@ static void mbed_ssl_process_out(uv_mbed_t *mbed, uv_mbed_write_cb cb, void *p) 
 
     if (avail == 0) {
         // how did we get here?
-        cb(mbed, MBEDTLS_ERR_SSL_WANT_WRITE, p);
+        cb(mbed, HANDSHAKE_ERROR_N_RETRY, p);
     } else {
         size_t len;
         uv_write_t *tcp_wr;
