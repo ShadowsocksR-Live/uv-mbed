@@ -260,7 +260,7 @@ static void tls_debug_f(void *ctx, int level, const char *file, int line, const 
 
 static void _uv_tcp_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     char *base = (char*) calloc(suggested_size, sizeof(*base));
-    *buf = uv_buf_init(base, (unsigned int)suggested_size);
+    *buf = uv_buf_init(base, base ? (unsigned int)suggested_size : 0);
 }
 
 static bool _do_uv_mbeb_connect_cb(uv_mbed_t *mbed, int status) {
@@ -304,7 +304,12 @@ static void _uv_dns_resolve_done_cb(uv_getaddrinfo_t* req, int status, struct ad
 
         mbed->socket = h;
 
-        uv_tcp_connect(tcp_cr, &h->tcp, res->ai_addr, _uv_tcp_connect_established_cb);
+        status = uv_tcp_connect(tcp_cr, &h->tcp, res->ai_addr, _uv_tcp_connect_established_cb);
+        if (status < 0) {
+            // https://github.com/libuv/libuv/issues/391
+            free(tcp_cr);
+            _do_uv_mbeb_connect_cb(mbed, status);
+        }
     }
     uv_freeaddrinfo(res);
     free(req);
