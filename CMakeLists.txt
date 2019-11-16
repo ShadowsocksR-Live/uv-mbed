@@ -37,7 +37,7 @@ target_include_directories(uv-mbed
         )
 
 target_link_libraries(uv-mbed
-        PUBLIC uv
+        PUBLIC uv_a
         PUBLIC mbedtls
         PUBLIC mbedx509
         PUBLIC mbedcrypto)

@@ -23,7 +23,7 @@ struct client_context {
 static void on_close(uv_mbed_t *h, void *p) {
     (void)p;
     printf("mbed is closed\n");
-    uv_mbed_free((uv_mbed_t *) h);
+    uv_mbed_release((uv_mbed_t *) h);
 }
 
 static void alloc(uv_mbed_t *mbed, size_t suggested_size, uv_buf_t *buf) {
