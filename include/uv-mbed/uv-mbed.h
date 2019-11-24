@@ -29,6 +29,8 @@ void uv_mbed_set_read_callback(uv_mbed_t *mbed, uv_mbed_alloc_cb, uv_mbed_read_c
 typedef void (*uv_mbed_write_cb)(uv_mbed_t *mbed, int status, void *p);
 int uv_mbed_write(uv_mbed_t *mbed, const uv_buf_t *buf, uv_mbed_write_cb cb, void *p);
 
+int uv_mbed_is_closing(uv_mbed_t *mbed);
+
 typedef void (*uv_mbed_close_cb)(uv_mbed_t *mbed, void *p);
 int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p);
 int uv_mbed_release(uv_mbed_t *mbed);

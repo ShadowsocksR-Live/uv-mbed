@@ -9,6 +9,7 @@ uv_mbed_get_stream_fd
 uv_mbed_connect
 uv_mbed_set_read_callback
 uv_mbed_write
+uv_mbed_is_closing
 uv_mbed_close
 uv_mbed_release
 
