@@ -37,13 +37,19 @@ bool bio_is_zero_copy(struct bio *b) {
     return b->zerocopy;
 }
 
-void bio_free(struct bio *b) {
+void bio_reset(struct bio *b) {
     while(!STAILQ_EMPTY(&b->message_q)) {
         struct bio_msg *m = STAILQ_FIRST(&b->message_q);
         STAILQ_REMOVE_HEAD(&b->message_q, next);
         free(m->buf);
         free(m);
     }
+    b->available = 0;
+    b->headoffset = 0;
+}
+
+void bio_free(struct bio *b) {
+    bio_reset(b);
     free(b);
 }
 

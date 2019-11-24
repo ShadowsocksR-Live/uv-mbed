@@ -18,6 +18,7 @@ struct bio;
 // this avoids an extra alloc/copy operation
 struct bio* bio_new(bool zerocopy);
 bool bio_is_zero_copy(struct bio *);
+void bio_reset(struct bio *);
 void bio_free(struct bio*);
 
 bool bio_put(struct bio *, const uint8_t *buf, size_t len);
