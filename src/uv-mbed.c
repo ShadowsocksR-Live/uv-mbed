@@ -17,7 +17,16 @@
 #include "uv-mbed/uv-mbed.h"
 #include "bio.h"
 
+#if defined(_MSC_VER)
+#if !defined(_CRTDBG_MAP_ALLOC)
+#define _CRTDBG_MAP_ALLOC
+#endif
+#include <stdlib.h>
+#include <crtdbg.h>
+#endif
+
 #define HANDSHAKE_RETRY_COUNT_MAX   10000
+#define CONNECT_TIMEOUT_DEFAULT     6000  // milliseconds.
 
 struct uv_mbed_s {
     union uv_any_handle *socket;
@@ -48,6 +57,10 @@ struct uv_mbed_s {
     struct bio *ssl_out;
 
     int ref_count;
+
+    uint64_t connect_timeout_milliseconds;
+    bool tcp_closed;
+    union uv_any_handle *connect_timeout;
 };
 
 static void tls_debug_f(void *ctx, int level, const char *file, int line, const char *str);
@@ -142,7 +155,7 @@ int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
     return 0;
 }
 
-int uv_mbed_connect(uv_mbed_t *mbed, const char *remote_addr, int port, uv_mbed_connect_cb cb, void *p) {
+int uv_mbed_connect(uv_mbed_t *mbed, const char *remote_addr, int port, uint64_t timeout_milliseconds, uv_mbed_connect_cb cb, void *p) {
     int status;
     char portstr[6] = { 0 };
     uv_loop_t *loop = mbed->loop;
