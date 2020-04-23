@@ -60,7 +60,7 @@ struct uv_mbed_s {
 
     uint64_t connect_timeout_milliseconds;
     bool tcp_closed;
-    union uv_any_handle *connect_timeout;
+    uv_timer_t *connect_timeout;
 };
 
 static void tls_debug_f(void *ctx, int level, const char *file, int line, const char *str);
@@ -90,8 +90,9 @@ uv_mbed_t * uv_mbed_init(uv_loop_t *loop, const char *host_name, void *user_data
     uv_mbed_t *mbed = (uv_mbed_t *) calloc(1, sizeof(*mbed));
     mbed->user_data = user_data;
     mbed->loop = loop;
+    mbed->connect_timeout_milliseconds = CONNECT_TIMEOUT_DEFAULT;
     _init_ssl(mbed, host_name, dump_level);
-    mbed->ref_count = 1;
+    uv_mbed_add_ref(mbed);
     return mbed;
 }
 
@@ -138,6 +139,11 @@ int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
     assert(mbed && close_cb);
     rc = mbedtls_ssl_close_notify(&mbed->ssl);
 
+    if (mbed->tcp_closed) {
+        assert(uv_mbed_is_closing(mbed));
+        close_cb(mbed, p);
+    }
+
     if (uv_mbed_is_closing(mbed)) {
         return 0;
     }
@@ -163,6 +169,10 @@ int uv_mbed_connect(uv_mbed_t *mbed, const char *remote_addr, int port, uint64_t
 
     mbed->connect_cb = cb;
     mbed->connect_cb_p = p;
+
+    if (timeout_milliseconds > 0) {
+        mbed->connect_timeout_milliseconds = timeout_milliseconds;
+    }
 
     req->data = mbed;
     sprintf(portstr, "%d", port);
@@ -265,6 +275,7 @@ void _uv_mbed_free_internal(uv_mbed_t *mbed) {
     mbedtls_x509_crt_free(&mbed->cacert);
 
     free(mbed->socket);
+    free(mbed->connect_timeout);
 
     free(mbed);
 }
@@ -315,6 +326,22 @@ static bool _do_uv_mbeb_connect_cb(uv_mbed_t *mbed, int status) {
     return result;
 }
 
+static void connect_canceled_n_close_cb(uv_handle_t* handle) {
+    uv_mbed_t *mbed = (uv_mbed_t *) handle->data;
+    uv_mbed_release(mbed);
+}
+
+static void connect_timeout_cb(uv_timer_t* handle) {
+    uv_mbed_t *mbed = (uv_mbed_t *) handle->data;
+    assert(mbed);
+    // uv__close(&mbed->connect_timeout->handle, NULL); // can NOT do it here.
+    uv_mbed_add_ref(mbed);
+    mbed->tcp_closed = true;
+    // to info the connection canceled, this call will cause
+    // _uv_tcp_connect_established_cb called with failed status.
+    uv_close(&mbed->socket->handle, connect_canceled_n_close_cb);
+}
+
 static void _uv_dns_resolve_done_cb(uv_getaddrinfo_t* req, int status, struct addrinfo* res) {
     uv_mbed_t *mbed = (uv_mbed_t *) req->data;
 
@@ -338,6 +365,13 @@ static void _uv_dns_resolve_done_cb(uv_getaddrinfo_t* req, int status, struct ad
             // https://github.com/libuv/libuv/issues/391
             free(tcp_cr);
             _do_uv_mbeb_connect_cb(mbed, status);
+        }
+        else {
+            uv_timer_t *timeout = (uv_timer_t *) calloc(1, sizeof(*timeout));
+            uv_timer_init(mbed->loop, timeout);
+            timeout->data = mbed;
+            uv_timer_start(timeout, connect_timeout_cb, mbed->connect_timeout_milliseconds, 0);
+            mbed->connect_timeout = timeout;
         }
     }
     uv_freeaddrinfo(res);
@@ -376,11 +410,22 @@ static void _uv_tcp_read_done_cb (uv_stream_t* stream, ssize_t nread, const uv_b
     }
 }
 
+static void connect_timeout_close_cb(uv_handle_t* handle) {
+    uv_mbed_t *mbed = (uv_mbed_t *) handle->data;
+    uv_mbed_release(mbed);
+}
+
 static void _uv_tcp_connect_established_cb(uv_connect_t *req, int status) {
     uv_mbed_t *mbed = (uv_mbed_t *) req->data;
     uv_stream_t *s = req->handle;
     assert(s->data == mbed);
     assert(s == &mbed->socket->stream);
+
+    if (mbed && mbed->connect_timeout) {
+        uv_timer_stop(mbed->connect_timeout);
+        uv_mbed_add_ref(mbed);
+        uv_close((uv_handle_t*)mbed->connect_timeout, connect_timeout_close_cb);
+    }
 
     if (status < 0) {
         _do_uv_mbeb_connect_cb(mbed, status);
