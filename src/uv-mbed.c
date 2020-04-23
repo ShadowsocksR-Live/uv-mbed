@@ -53,7 +53,7 @@ struct uv_mbed_s {
 static void tls_debug_f(void *ctx, int level, const char *file, int line, const char *str);
 static void _init_ssl(uv_mbed_t *mbed, const char *host_name, int dump_level);
 static void _uv_dns_resolve_done_cb(uv_getaddrinfo_t* req, int status, struct addrinfo* res);
-
+static bool _do_uv_mbeb_connect_cb(uv_mbed_t *mbed, int status);
 static void _uv_tcp_connect_established_cb(uv_connect_t* req, int status);
 static void _uv_tcp_shutdown_cb(uv_shutdown_t* req, int status) ;
 static void _uv_tcp_close_done_cb (uv_handle_t *h);
@@ -143,6 +143,7 @@ int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
 }
 
 int uv_mbed_connect(uv_mbed_t *mbed, const char *remote_addr, int port, uv_mbed_connect_cb cb, void *p) {
+    int status;
     char portstr[6] = { 0 };
     uv_loop_t *loop = mbed->loop;
     uv_getaddrinfo_t *req = (uv_getaddrinfo_t *)calloc(1, sizeof(*req));
@@ -152,7 +153,12 @@ int uv_mbed_connect(uv_mbed_t *mbed, const char *remote_addr, int port, uv_mbed_
 
     req->data = mbed;
     sprintf(portstr, "%d", port);
-    return uv_getaddrinfo(loop, req, _uv_dns_resolve_done_cb, remote_addr, portstr, NULL);
+    status = uv_getaddrinfo(loop, req, _uv_dns_resolve_done_cb, remote_addr, portstr, NULL);
+    if (status != 0) {
+        free(req);
+        _do_uv_mbeb_connect_cb(mbed, status);
+    }
+    return status;
 }
 
 void uv_mbed_set_read_callback(uv_mbed_t *mbed, uv_mbed_alloc_cb alloc_cb, uv_mbed_read_cb read_cb, void *p) {
