@@ -134,7 +134,7 @@ int main(int argc, char * const argv[]) {
     ctx.cmd = cmd;
     ctx.fp = fp;
 
-    uv_mbed_connect(mbed, cmd->server_addr, atoi(cmd->server_port), on_connect, &ctx);
+    uv_mbed_connect(mbed, cmd->server_addr, atoi(cmd->server_port), 5000, on_connect, &ctx);
 
     uv_run(l, UV_RUN_DEFAULT);
 
