@@ -164,7 +164,7 @@ int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
     return 0;
 }
 
-void uv_mbed_set_connect_established_callback(uv_mbed_t* mbed, uv_mbed_tcp_connect_established_cb cb, void *p) {
+void uv_mbed_set_tcp_connect_established_callback(uv_mbed_t* mbed, uv_mbed_tcp_connect_established_cb cb, void *p) {
     if (mbed) {
         mbed->tcp_conn_cb = cb;
         mbed->tcp_conn_cb_p = p;
