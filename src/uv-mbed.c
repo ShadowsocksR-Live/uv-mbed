@@ -46,6 +46,9 @@ struct uv_mbed_s {
     uv_mbed_connect_cb connect_cb;
     void *connect_cb_p;
 
+    uv_mbed_tcp_connect_established_cb tcp_conn_cb;
+    void *tcp_conn_cb_p;
+
     uv_mbed_alloc_cb alloc_cb;
     uv_mbed_read_cb read_cb;
     void *read_cb_p;
@@ -159,6 +162,13 @@ int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
         mbed_ssl_process_out(mbed, &_close_ssl_process_cb, p);
     }
     return 0;
+}
+
+void uv_mbed_set_connect_established_callback(uv_mbed_t* mbed, uv_mbed_tcp_connect_established_cb cb, void *p) {
+    if (mbed) {
+        mbed->tcp_conn_cb = cb;
+        mbed->tcp_conn_cb_p = p;
+    }
 }
 
 int uv_mbed_connect(uv_mbed_t *mbed, const char *remote_addr, int port, uint64_t timeout_milliseconds, uv_mbed_connect_cb cb, void *p) {
@@ -432,6 +442,9 @@ static void _uv_tcp_connect_established_cb(uv_connect_t *req, int status) {
     }
     else {
         mbed->tcp_connected = true;
+        if (mbed->tcp_conn_cb) {
+            mbed->tcp_conn_cb(mbed, mbed->tcp_conn_cb_p);
+        }
         uv_read_start(s, _uv_tcp_alloc_cb, _uv_tcp_read_done_cb);
         mbed_ssl_process_in(mbed);
     }
