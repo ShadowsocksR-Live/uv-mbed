@@ -193,7 +193,7 @@ static int parese_address(const char *addr_str, int port, union sockaddr_univers
 static void try_connect_remote_svr(uv_mbed_t *mbed, const struct sockaddr* addr);
 
 int uv_mbed_connect(uv_mbed_t *mbed, const char *remote_addr, int port, uint64_t timeout_milliseconds, uv_mbed_connect_cb cb, void *p) {
-    union sockaddr_universal us_tmp = { {0, {0}} };
+    union sockaddr_universal us_tmp = { {0, 0} };
     int status;
     char portstr[6] = { 0 };
     uv_loop_t *loop = mbed->loop;
