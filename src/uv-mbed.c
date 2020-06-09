@@ -171,11 +171,33 @@ void uv_mbed_set_tcp_connect_established_callback(uv_mbed_t* mbed, uv_mbed_tcp_c
     }
 }
 
+union sockaddr_universal {
+    struct sockaddr addr;
+    struct sockaddr_in addr4;
+    struct sockaddr_in6 addr6;
+    struct sockaddr_storage addr_stor;
+};
+
+static int parese_address(const char *addr_str, int port, union sockaddr_universal *addr) {
+    int result = -1;
+    if ((result = uv_inet_pton(AF_INET, addr_str, &addr->addr4.sin_addr)) == 0) {
+        addr->addr4.sin_family = AF_INET;
+        addr->addr4.sin_port = htons((uint16_t)port);
+    } else if ((result = uv_inet_pton(AF_INET6, addr_str, &addr->addr6.sin6_addr)) == 0) {
+        addr->addr6.sin6_family = AF_INET6;
+        addr->addr6.sin6_port = htons((uint16_t)port);
+    }
+    return result;
+}
+
+static void try_connect_remote_svr(uv_mbed_t *mbed, const struct sockaddr* addr);
+
 int uv_mbed_connect(uv_mbed_t *mbed, const char *remote_addr, int port, uint64_t timeout_milliseconds, uv_mbed_connect_cb cb, void *p) {
+    union sockaddr_universal us_tmp = { {0, {0}} };
     int status;
     char portstr[6] = { 0 };
     uv_loop_t *loop = mbed->loop;
-    uv_getaddrinfo_t *req = (uv_getaddrinfo_t *)calloc(1, sizeof(*req));
+    uv_getaddrinfo_t *req;
 
     mbed->connect_cb = cb;
     mbed->connect_cb_p = p;
@@ -184,6 +206,12 @@ int uv_mbed_connect(uv_mbed_t *mbed, const char *remote_addr, int port, uint64_t
         mbed->connect_timeout_milliseconds = timeout_milliseconds;
     }
 
+    if (parese_address(remote_addr, port, &us_tmp) == 0) {
+        try_connect_remote_svr(mbed, &us_tmp.addr);
+        return 0;
+    }
+
+    req = (uv_getaddrinfo_t *)calloc(1, sizeof(*req));
     req->data = mbed;
     sprintf(portstr, "%d", port);
     status = uv_getaddrinfo(loop, req, _uv_dns_resolve_done_cb, remote_addr, portstr, NULL);
@@ -359,6 +387,15 @@ static void _uv_dns_resolve_done_cb(uv_getaddrinfo_t* req, int status, struct ad
         _do_uv_mbeb_connect_cb(mbed, status);
     }
     else {
+        try_connect_remote_svr(mbed, res->ai_addr);
+    }
+    uv_freeaddrinfo(res);
+    free(req);
+}
+
+static void try_connect_remote_svr(uv_mbed_t *mbed, const struct sockaddr* addr) {
+    {
+        int status;
         union uv_any_handle *h;
 
         uv_connect_t *tcp_cr = (uv_connect_t *) calloc(1, sizeof(uv_connect_t));
@@ -370,7 +407,7 @@ static void _uv_dns_resolve_done_cb(uv_getaddrinfo_t* req, int status, struct ad
 
         mbed->socket = h;
 
-        status = uv_tcp_connect(tcp_cr, &h->tcp, res->ai_addr, _uv_tcp_connect_established_cb);
+        status = uv_tcp_connect(tcp_cr, &h->tcp, addr, _uv_tcp_connect_established_cb);
         if (status < 0) {
             // https://github.com/libuv/libuv/issues/391
             free(tcp_cr);
@@ -384,8 +421,6 @@ static void _uv_dns_resolve_done_cb(uv_getaddrinfo_t* req, int status, struct ad
             mbed->connect_timeout = timeout;
         }
     }
-    uv_freeaddrinfo(res);
-    free(req);
 }
 
 static void _uv_tcp_read_done_cb (uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
