@@ -27,6 +27,7 @@
 
 #define HANDSHAKE_RETRY_COUNT_MAX   10000
 #define CONNECT_TIMEOUT_DEFAULT     6000  // milliseconds.
+#define WRITE_RETRY_MAX 10
 
 struct uv_mbed_s {
     union uv_any_handle *socket;
@@ -58,6 +59,8 @@ struct uv_mbed_s {
 
     struct bio *ssl_in;
     struct bio *ssl_out;
+
+    int write_retry;
 
     int ref_count;
 
@@ -621,10 +624,15 @@ static void mbed_ssl_process_out(uv_mbed_t *mbed, uv_mbed_write_cb cb, void *p) 
         struct uv_tcp_write_ctx *ctx;
 
         if (uv_is_writable(&mbed->socket->stream) == 0) {
-            bio_reset(out);
-            cb(mbed, UV_EPIPE, p);
+            int r = 0;
+            if (++mbed->write_retry > WRITE_RETRY_MAX) {
+                bio_reset(out);
+                r = UV_EPIPE;
+            }
+            cb(mbed, r, p);
             return;
         }
+        mbed->write_retry = 0;
 
         ctx = (struct uv_tcp_write_ctx *) calloc(1, sizeof(*ctx));
         ctx->buf = (uint8_t *)calloc(avail, sizeof(uint8_t));
