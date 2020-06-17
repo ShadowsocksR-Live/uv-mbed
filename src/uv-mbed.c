@@ -162,7 +162,11 @@ int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
         uv_close(&mbed->socket->handle, _uv_tcp_close_done_cb);
     } else {
         uv_read_stop(&mbed->socket->stream);
+#if __linux__
+        _close_ssl_process_cb(mbed, 0, p); // to avoid SIGPIPE (Broken pipe)
+#else
         mbed_ssl_process_out(mbed, &_close_ssl_process_cb, p);
+#endif
     }
     return 0;
 }
