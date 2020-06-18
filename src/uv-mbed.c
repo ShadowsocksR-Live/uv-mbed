@@ -65,7 +65,7 @@ struct uv_mbed_s {
     int ref_count;
 
     uint64_t connect_timeout_milliseconds;
-    bool tcp_closed;
+    bool tcp_force_closed_for_timeout;
     uv_timer_t *connect_timeout;
 };
 
@@ -145,12 +145,12 @@ int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
     assert(mbed && close_cb);
     rc = mbedtls_ssl_close_notify(&mbed->ssl);
 
-    if (mbed->tcp_closed) {
+    if (mbed->tcp_force_closed_for_timeout) {
         assert(uv_mbed_is_closing(mbed));
-        close_cb(mbed, p);
     }
 
     if (uv_mbed_is_closing(mbed)) {
+        close_cb(mbed, p);
         return 0;
     }
 
@@ -326,14 +326,14 @@ void _uv_mbed_free_internal(uv_mbed_t *mbed) {
 }
 
 int uv_mbed_release(uv_mbed_t *mbed) {
-    int ref_count = 0;
+    int ref__count = 0;
     if (mbed) {
-        ref_count = (--mbed->ref_count);
-        if (ref_count <= 0) {
+        ref__count = (--mbed->ref_count);
+        if (ref__count <= 0) {
             _uv_mbed_free_internal(mbed);
         }
     }
-    return ref_count;
+    return ref__count;
 }
 
 static void tls_debug_f(void *ctx, int level, const char *file, int line, const char *str)
@@ -381,7 +381,7 @@ static void connect_timeout_cb(uv_timer_t* handle) {
     assert(mbed);
     // uv__close(&mbed->connect_timeout->handle, NULL); // can NOT do it here.
     uv_mbed_add_ref(mbed);
-    mbed->tcp_closed = true;
+    mbed->tcp_force_closed_for_timeout = true;
     // to info the connection canceled, this call will cause
     // _uv_tcp_connect_established_cb called with failed status.
     uv_close(&mbed->socket->handle, connect_canceled_n_close_cb);
@@ -603,7 +603,7 @@ static void mbed_continue_handshake(uv_mbed_t *mbed) {
     int rc = mbedtls_ssl_handshake(&mbed->ssl);
     switch (rc) {
     case 0:
-        _do_uv_mbeb_connect_cb(mbed, 0);
+        _do_uv_mbeb_connect_cb(mbed, 0); // TLS connect success.
         break;
     case MBEDTLS_ERR_SSL_WANT_WRITE:
     case MBEDTLS_ERR_SSL_WANT_READ:

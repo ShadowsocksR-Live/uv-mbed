@@ -16,6 +16,7 @@ typedef struct uv_mbed_s uv_mbed_t;
 
 uv_mbed_t * uv_mbed_init(uv_loop_t *loop, const char *host_name, void *user_data, int dump_level);
 int uv_mbed_add_ref(uv_mbed_t *mbed);
+int uv_mbed_release(uv_mbed_t *mbed);
 void * uv_mbed_user_data(uv_mbed_t *mbed);
 uv_os_sock_t uv_mbed_get_stream_fd(const uv_mbed_t *mbed);
 
@@ -36,7 +37,6 @@ int uv_mbed_is_closing(uv_mbed_t *mbed);
 
 typedef void (*uv_mbed_close_cb)(uv_mbed_t *mbed, void *p);
 int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p);
-int uv_mbed_release(uv_mbed_t *mbed);
 
 #ifdef __cplusplus
 }
