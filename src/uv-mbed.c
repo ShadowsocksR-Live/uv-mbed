@@ -113,19 +113,12 @@ void * uv_mbed_user_data(uv_mbed_t *mbed) {
     return mbed->user_data;
 }
 
-static uv_os_sock_t _uv_stream_fd(const uv_tcp_t *handle) {
-#if defined(_WIN32)
-    return handle->socket;
-#elif defined(__APPLE__)
-    int uv___stream_fd(const uv_stream_t* handle);
-    return uv___stream_fd((const uv_stream_t *)handle);
-#else
-    return (handle)->io_watcher.fd;
-#endif
-}
-
 uv_os_sock_t uv_mbed_get_stream_fd(const uv_mbed_t *mbed) {
-    return mbed ? _uv_stream_fd(&mbed->socket->tcp) : -1; /* (~0) */
+    uv_os_fd_t fd = (uv_os_fd_t)-1;
+    if (mbed) {
+        uv_fileno(&mbed->socket->handle, &fd);
+    }
+    return (uv_os_sock_t)fd;
 }
 
 static void _close_ssl_process_cb(uv_mbed_t *mbed, int status, void *p) {
