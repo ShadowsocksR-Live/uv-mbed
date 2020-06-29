@@ -5,7 +5,11 @@ PROJECT("uv-mbed"
         VERSION 0.5.0
         )
 
-option(ENABLE_SAMPLES "Build samples." OFF)
+include(CMakeDependentOption)
+
+cmake_dependent_option(ENABLE_SAMPLES
+                "Build samples"
+                ON "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR" OFF)
 
 set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
 set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
@@ -16,7 +20,7 @@ set_target_properties(mbedtls PROPERTIES
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
 add_subdirectory(libuv)
-set_target_properties(uv PROPERTIES
+set_target_properties(uv_a PROPERTIES
         INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/libuv/include)
 
 add_library(uv-mbed STATIC
@@ -48,6 +52,6 @@ else()
 # install(TARGETS uv-mbed ARCHIVE DESTINATION lib)
 endif()
 
-#if(ENABLE_SAMPLES)
+if(ENABLE_SAMPLES)
 add_subdirectory(sample)
-#endif()
+endif()
