@@ -130,7 +130,10 @@ static void _close_ssl_process_cb(uv_mbed_t *mbed, int status, void *p) {
 }
 
 int uv_mbed_is_closing(uv_mbed_t *mbed) {
-    return uv_is_closing(&mbed->socket->handle);
+    if (mbed && mbed->socket) {
+        return uv_is_closing(&mbed->socket->handle);
+    }
+    return true;
 }
 
 int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
@@ -500,6 +503,7 @@ static void _uv_tcp_shutdown_cb(uv_shutdown_t* req, int status) {
     uv_mbed_t *mbed = (uv_mbed_t *) req->data;
     union uv_any_handle *h = mbed->socket;
     if (uv_mbed_is_closing(mbed)) {
+        free(req);
         return;
     }
     assert(req->handle == &h->stream);
