@@ -347,7 +347,7 @@ int main(int argc, char * const argv[])
             is_eof = true;
         }
 
-        buffer_concatenate(rcv_buf, read_buffer, ret);
+        buffer_concatenate_raw(rcv_buf, read_buffer, ret);
 
         payload = websocket_retrieve_payload(rcv_buf->buffer, rcv_buf->len, &malloc, &info);
 
@@ -361,7 +361,7 @@ int main(int argc, char * const argv[])
             }
         }
 
-        buffer_shortened_to(rcv_buf, info.frame_size, rcv_buf->len - info.frame_size);
+        buffer_shortened_to(rcv_buf, info.frame_size, rcv_buf->len - info.frame_size, true);
 
         if (info.opcode == WS_OPCODE_CLOSE) {
             free(payload);
