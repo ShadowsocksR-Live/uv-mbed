@@ -193,7 +193,7 @@ static int parese_address(const char *addr_str, int port, union sockaddr_univers
     return result;
 }
 
-static void try_connect_remote_svr(uv_mbed_t *mbed, const struct sockaddr* addr);
+static int try_connect_remote_svr(uv_mbed_t *mbed, const struct sockaddr* addr);
 
 int uv_mbed_connect(uv_mbed_t *mbed, const char *remote_addr, int port, uint64_t timeout_milliseconds, uv_mbed_connect_cb cb, void *p) {
     union sockaddr_universal us_tmp = { {0, 0} };
@@ -210,8 +210,8 @@ int uv_mbed_connect(uv_mbed_t *mbed, const char *remote_addr, int port, uint64_t
     }
 
     if (parese_address(remote_addr, port, &us_tmp) == 0) {
-        try_connect_remote_svr(mbed, &us_tmp.addr);
-        return 0;
+        status = try_connect_remote_svr(mbed, &us_tmp.addr);
+        return status;
     }
 
     req = (uv_getaddrinfo_t *)calloc(1, sizeof(*req));
@@ -390,13 +390,16 @@ static void _uv_dns_resolve_done_cb(uv_getaddrinfo_t* req, int status, struct ad
         _do_uv_mbeb_connect_cb(mbed, status);
     }
     else {
-        try_connect_remote_svr(mbed, res->ai_addr);
+        status = try_connect_remote_svr(mbed, res->ai_addr);
+        if (status < 0){
+            _do_uv_mbeb_connect_cb(mbed, status);
+        }
     }
     uv_freeaddrinfo(res);
     free(req);
 }
 
-static void try_connect_remote_svr(uv_mbed_t *mbed, const struct sockaddr* addr) {
+static int try_connect_remote_svr(uv_mbed_t *mbed, const struct sockaddr* addr) {
     {
         int status;
         union uv_any_handle *h;
@@ -423,6 +426,7 @@ static void try_connect_remote_svr(uv_mbed_t *mbed, const struct sockaddr* addr)
             uv_timer_start(timeout, connect_timeout_cb, mbed->connect_timeout_milliseconds, 0);
             mbed->connect_timeout = timeout;
         }
+        return status;
     }
 }
 
