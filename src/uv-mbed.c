@@ -127,6 +127,8 @@ static void _close_ssl_process_cb(uv_mbed_t *mbed, int status, void *p) {
     if (0 != uv_shutdown(sr, &mbed->socket->stream, _uv_tcp_shutdown_cb)) {
         free(sr);
     }
+    (void)status;
+    (void)p;
 }
 
 int uv_mbed_is_closing(uv_mbed_t *mbed) {
@@ -164,6 +166,7 @@ int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
         mbed_ssl_process_out(mbed, &_close_ssl_process_cb, p);
 #endif
     }
+    (void)rc;
     return 0;
 }
 
@@ -337,11 +340,13 @@ static void tls_debug_f(void *ctx, int level, const char *file, int line, const 
     ((void) level);
     printf("%s:%04d: %s", file, line, str );
     fflush(  stdout );
+    (void)ctx;
 }
 
 static void _uv_tcp_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     char *base = (char*) calloc(suggested_size, sizeof(*base));
     *buf = uv_buf_init(base, base ? (unsigned int)suggested_size : 0);
+    (void)handle;
 }
 
 static bool _do_uv_mbeb_connect_cb(uv_mbed_t *mbed, int status) {
@@ -515,6 +520,7 @@ static void _uv_tcp_shutdown_cb(uv_shutdown_t* req, int status) {
     uv_mbed_add_ref(mbed);
     uv_close(&h->handle, _uv_tcp_close_done_cb);
     free(req);
+    (void)status;
 }
 
 static void _uv_mbed_tcp_write_done_cb(uv_write_t *req, int status) {
@@ -558,6 +564,7 @@ static void _mbed_handshake_write_cb(uv_mbed_t *mbed, int status, void *p) {
             _do_uv_mbeb_connect_cb(mbed, status);
         }
     }
+    (void)p;
 }
 
 static bool mbed_ssl_process_in(uv_mbed_t *mbed) {
