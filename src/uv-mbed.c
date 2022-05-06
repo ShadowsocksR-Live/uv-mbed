@@ -47,8 +47,8 @@ struct uv_mbed_s {
     uv_mbed_connect_cb connect_cb;
     void *connect_cb_p;
 
-    uv_mbed_tcp_connect_established_cb tcp_conn_cb;
-    void *tcp_conn_cb_p;
+    uv_mbed_tcp_socket_created_cb tcp_socket_created;
+    void *tcp_socket_created_p;
 
     uv_mbed_alloc_cb alloc_cb;
     uv_mbed_read_cb read_cb;
@@ -170,10 +170,10 @@ int uv_mbed_close(uv_mbed_t *mbed, uv_mbed_close_cb close_cb, void *p) {
     return 0;
 }
 
-void uv_mbed_set_tcp_connect_established_callback(uv_mbed_t* mbed, uv_mbed_tcp_connect_established_cb cb, void *p) {
+void uv_mbed_set_tcp_socket_created_callback(uv_mbed_t* mbed, uv_mbed_tcp_socket_created_cb cb, void *p) {
     if (mbed) {
-        mbed->tcp_conn_cb = cb;
-        mbed->tcp_conn_cb_p = p;
+        mbed->tcp_socket_created = cb;
+        mbed->tcp_socket_created_p = p;
     }
 }
 
@@ -403,7 +403,17 @@ static void _uv_dns_resolve_done_cb(uv_getaddrinfo_t* req, int status, struct ad
     uv_freeaddrinfo(res);
     free(req);
 }
-
+/*
+static void _on_socket_created(uv_tcp_t* handle, void* p) {
+    uv_mbed_t *mbed = (uv_mbed_t *)p;
+    assert(mbed);
+    assert(&mbed->socket->tcp == handle);
+    if (mbed->tcp_socket_created) {
+        mbed->tcp_socket_created(mbed, mbed->tcp_socket_created_p);
+    }
+    (void)handle;
+}
+*/
 static int try_connect_remote_svr(uv_mbed_t *mbed, const struct sockaddr* addr) {
     {
         int status;
@@ -413,10 +423,12 @@ static int try_connect_remote_svr(uv_mbed_t *mbed, const struct sockaddr* addr) 
         tcp_cr->data = mbed;
 
         h = (union uv_any_handle *)calloc(1, sizeof(*h));
+        mbed->socket = h;
+
+        /* uv_set_tcp_socket_created_cb(&h->tcp, _on_socket_created, mbed); */
+
         uv_tcp_init(mbed->loop, &h->tcp);
         h->tcp.data = mbed;
-
-        mbed->socket = h;
 
         status = uv_tcp_connect(tcp_cr, &h->tcp, addr, _uv_tcp_connect_established_cb);
         if (status < 0) {
@@ -489,9 +501,6 @@ static void _uv_tcp_connect_established_cb(uv_connect_t *req, int status) {
     }
     else {
         mbed->tcp_connected = true;
-        if (mbed->tcp_conn_cb) {
-            mbed->tcp_conn_cb(mbed, mbed->tcp_conn_cb_p);
-        }
         uv_read_start(s, _uv_tcp_alloc_cb, _uv_tcp_read_done_cb);
         mbed_ssl_process_in(mbed);
     }

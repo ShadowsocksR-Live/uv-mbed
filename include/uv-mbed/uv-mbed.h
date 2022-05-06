@@ -23,8 +23,8 @@ uv_os_sock_t uv_mbed_get_stream_fd(const uv_mbed_t *mbed);
 typedef void (*uv_mbed_connect_cb)(uv_mbed_t* mbed, int status, void *p);
 int uv_mbed_connect(uv_mbed_t* mbed, const char *remote_addr, int port, uint64_t timeout_milliseconds, uv_mbed_connect_cb cb, void *p);
 
-typedef void (*uv_mbed_tcp_connect_established_cb)(uv_mbed_t* mbed, void *p);
-void uv_mbed_set_tcp_connect_established_callback(uv_mbed_t* mbed, uv_mbed_tcp_connect_established_cb cb, void *p);
+typedef void (*uv_mbed_tcp_socket_created_cb)(uv_mbed_t* mbed, void *p);
+void uv_mbed_set_tcp_socket_created_callback(uv_mbed_t* mbed, uv_mbed_tcp_socket_created_cb cb, void *p);
 
 typedef void (*uv_mbed_alloc_cb)(uv_mbed_t *mbed, size_t suggested_size, uv_buf_t* buf);
 typedef void (*uv_mbed_read_cb)(uv_mbed_t *mbed, ssize_t nread, uv_buf_t* buf, void *p);
