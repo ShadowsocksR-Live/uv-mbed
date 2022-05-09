@@ -403,7 +403,7 @@ static void _uv_dns_resolve_done_cb(uv_getaddrinfo_t* req, int status, struct ad
     uv_freeaddrinfo(res);
     free(req);
 }
-/*
+
 static void _on_socket_created(uv_tcp_t* handle, void* p) {
     uv_mbed_t *mbed = (uv_mbed_t *)p;
     assert(mbed);
@@ -413,7 +413,7 @@ static void _on_socket_created(uv_tcp_t* handle, void* p) {
     }
     (void)handle;
 }
-*/
+
 static int try_connect_remote_svr(uv_mbed_t *mbed, const struct sockaddr* addr) {
     {
         int status;
@@ -425,10 +425,10 @@ static int try_connect_remote_svr(uv_mbed_t *mbed, const struct sockaddr* addr) 
         h = (union uv_any_handle *)calloc(1, sizeof(*h));
         mbed->socket = h;
 
-        /* uv_set_tcp_socket_created_cb(&h->tcp, _on_socket_created, mbed); */
-
         uv_tcp_init(mbed->loop, &h->tcp);
         h->tcp.data = mbed;
+
+        uv_set_tcp_socket_created_cb(&h->tcp, _on_socket_created, mbed);
 
         status = uv_tcp_connect(tcp_cr, &h->tcp, addr, _uv_tcp_connect_established_cb);
         if (status < 0) {
