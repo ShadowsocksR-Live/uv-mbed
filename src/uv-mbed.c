@@ -404,10 +404,10 @@ static void _uv_dns_resolve_done_cb(uv_getaddrinfo_t* req, int status, struct ad
     free(req);
 }
 
-static void _on_socket_created(uv_tcp_t* handle, void* p) {
+static void _on_socket_created(uv_handle_t* handle, void* p) {
     uv_mbed_t *mbed = (uv_mbed_t *)p;
     assert(mbed);
-    assert(&mbed->socket->tcp == handle);
+    assert(&mbed->socket->tcp == (uv_tcp_t*)handle);
     if (mbed->tcp_socket_created) {
         mbed->tcp_socket_created(mbed, mbed->tcp_socket_created_p);
     }
@@ -428,7 +428,7 @@ static int try_connect_remote_svr(uv_mbed_t *mbed, const struct sockaddr* addr) 
         uv_tcp_init(mbed->loop, &h->tcp);
         h->tcp.data = mbed;
 
-        uv_set_tcp_socket_created_cb(&h->tcp, _on_socket_created, mbed);
+        uv_set_socket_create_cb((uv_handle_t*)&h->tcp, _on_socket_created, mbed);
 
         status = uv_tcp_connect(tcp_cr, &h->tcp, addr, _uv_tcp_connect_established_cb);
         if (status < 0) {
